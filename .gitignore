@@ -1,4 +1,4 @@
-./build
+/build
 .vscode
 /test
 .DS_Store
