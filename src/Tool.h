@@ -8,11 +8,13 @@ struct endpoint {
 	float zl;
 	float zr;
 	int order;
-    endpoint(float a, float b, int c):zl(a), zr(b), order(c){};
+	endpoint(float a, float b, int c) :zl(a), zr(b), order(c) {};
 };
 
 struct Edge {
 	float x;
+	float z;
+	float dz;
 	float dy;
 	float dx;
 	int polyID;

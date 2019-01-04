@@ -1,9 +1,9 @@
 #include"Scanline.h"
 
 
-void Scanline::setSize(int _width, int _height){
-    width = _width;
-    height = _height;
+void Scanline::setSize(int _width, int _height) {
+	width = _width;
+	height = _height;
 }
 
 Color Scanline::getColor(Point<float> normal) {
@@ -19,20 +19,22 @@ void Scanline::BuildTable(Obj &obj) {
 	PTable.clear();
 	ETable.resize(height);
 	PTable.resize(height);
-	
+
 	int faceNum = obj.getFaceNum();
 	for (int i = 0; i < faceNum; i++) {
 		Edge edge;
 		float miny = INF;
 		float maxy = 0;
-		for (int j = 0; j < obj.face[i].size();j++) {
+		for (int j = 0; j < obj.face[i].size(); j++) {
 			Point<float> c1 = obj.vertex[obj.face[i][j]];
 			Point<float> c2 = obj.vertex[obj.face[i][(j + 1) % obj.face[i].size()]];
 			if (c1.y == c2.y) continue;
-			if (c1.y>c2.y) std::swap(c1, c2);
+			if (c1.y > c2.y) std::swap(c1, c2);
 
 			edge.x = c2.x;
+			edge.z = c2.z;
 			edge.dy = ceil(c2.y) - ceil(c1.y);
+			edge.dz = (c1.z - c2.z) / edge.dy;
 			edge.dx = (c1.x - c2.x) / edge.dy;
 			edge.polyID = i;
 			ETable[ceil(c2.y)].push_back(edge);
@@ -62,7 +64,8 @@ void Scanline::UpdateActiveEdge() {
 		if ((*it).dy == 0) continue;
 		else {
 			(*it).x += (*it).dx;
-			*(AET.begin()+n2) = *(it);
+			(*it).z += (*it).dz;
+			*(AET.begin() + n2) = *(it);
 			n2++;
 		}
 	}
@@ -99,7 +102,7 @@ Color Scanline::pixelByID(int count, float x, float y) {
 	Color col = 0;
 	y = y - 0.5;
 	float maxz = -INF, z;
- 
+
 	for (std::vector<Poly>::iterator it = APT.begin(); count > 0 && it != APT.end(); it++) {
 		if ((*it).flag) {
 			z = -((*it).a*x + (*it).b*y + (*it).d) / (*it).c;
@@ -114,103 +117,34 @@ Color Scanline::pixelByID(int count, float x, float y) {
 }
 
 void Scanline::ComputeBuffer(int y, std::vector<Color> &buffer, Obj &obj) {
-	// std::set<int> st;
-	// std::map<int, int> mp;
-	// std::map<int, int> fmp;
-	// int tot = 0;
-
-	// int now = 0;
-	// for(int i = 0; i < width; ++i) {
-	// 	while( now < AET.size() && i == ceil(AET[now].x) ) {
-	// 		if(mp.find(AET[now].polyID) == mp.end()) {
-	// 			mp[AET[now].polyID] = tot;
-	// 			fmp[tot] = AET[now].polyID;
-	// 			tot ++;
-	// 			st.insert(mp[AET[now].polyID]);
-	// 		} else {
-	// 			st.erase(mp[AET[now].polyID]);
-	// 		}			
-	// 		now ++;
-	// 	}
-	// 	if(st.size() == 0) buffer[i] = 0;
-	// 	else buffer[i] = obj.color[fmp[*(--st.end())]];
-	// }
-
-	float left = 0, right;
-	int count = 0;
+	std::multiset<std::pair<float, Color> > st;
+	std::map<int, float> mp;
+	//	std::map<int, int> fmp;
+	int tot = 0;
 	buffer.resize(width);
-	for (int n = 0; n < (int)AET.size(); n++) {
-		right = AET[n].x;
-		if (left >= right) {
-			count = UpdateFlagByID(AET[n].polyID) ? count + 1 : count - 1;
-			continue;
+	int now = 0;
+	for (int i = 0; i < width; ++i) {
+		//vector<Color> tmp;
+		while (now < AET.size() && i == ceil(AET[now].x)) {
+			std::pair<float, Color> tt = std::make_pair(AET[now].z, obj.color[AET[now].polyID]);
+			if (mp.find(AET[now].polyID) == mp.end()) {
+				mp[AET[now].polyID] = AET[now].z;
+				// fmp[tot] = AET[now].polyID;
+				//tot ++;
+				st.insert(tt);
+			}
+			else {
+				auto it = st.find(std::make_pair(mp[AET[now].polyID], obj.color[AET[now].polyID]));
+				if (it != st.end()) st.erase(it);
+				//tmp.push_back(mp[AET[now].polyID]);
+			}
+			now++;
 		}
-		Color col = 0;
-		if (count == 0) {
-			for(int pixel=left;left<right;left++) {
-				if(left >= width) continue;
-				buffer[left]=0;
-			}
+		if (st.size() == 0) buffer[i] = 0;
+		else {
+			//printf("%d %d\n", fmp[*(--st.end())], obj.color[fmp[*(--st.end())]]);
+			buffer[i] = (*(--st.end())).second;
 		}
-		else if (count == 1)
-		{
-			col = pixelByID(count, left, y);
- 
-			for(float pixel=left;left<right;left++) {
-				if(left >= width) continue;
-				buffer[left] = col;
-			}
-		}
-		else
-		{
-			std::vector<endpoint> points;
-			Poly p1, p2;
-			std::vector<float> cross;
- 
-			for (int i = 0; i < APT.size();i++)
-			{
-				if (points.size() == count) break;
-				if (APT[i].flag)
-				{
-					points.push_back( endpoint(float(-(APT[i].a*left + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
-									    float(-(APT[i].a*right + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
-									    i ));
-				}
-			}
- 
-			for (int i = 0; i < points.size(); i++)
-			{
-				for (int j = i+1;j < points.size(); j++)
-				{
-					if ((points[i].zl - points[j].zl) * (points[i].zr - points[j].zr) < 0)
-					{
-						p1 = APT[points[i].order];
-						p2 = APT[points[j].order];
-						cross.push_back((p2.c*p1.d + p2.c*p1.b*y - p1.c*p2.d - p1.c*p2.b*y) / (p1.c*p2.a - p2.c*p1.a));
-					}
-				}
-			}
-			cross.push_back(right);
-			std::sort(cross.begin(), cross.end());
-			for (int i = 0; i < cross.size();i++)
-			{
-				right = cross[i];
-				col = pixelByID(count, left, y);
- 
-				for(float pixel=left;left<right;left++)
-				{
-					if(left >= width) continue;
-					buffer[left] = col;
-				}
-			}
-		}
-		count = UpdateFlagByID(AET[n].polyID) ? count + 1 : count - 1;
-		left = right;
-	}
- 
-	for (float pixel = left; left < width; left++)
-	{
-		buffer[left] = 0;
 	}
 }
 
@@ -220,11 +154,11 @@ void Scanline::scan(Obj &obj, std::vector<std::vector<Color> > &buffer)
 	APT.clear();
 	buffer.clear();
 	buffer.resize(height);
-	
+
 	printf("height %d\n", height);
 
 
-	for (int y = height-1; y >= 0; y--) {
+	for (int y = height - 1; y >= 0; y--) {
 		printf("%d\n", y);
 		for (int n = 0; n < (int)ETable[y].size(); n++) {
 			AET.push_back(ETable[y][n]);
@@ -232,7 +166,7 @@ void Scanline::scan(Obj &obj, std::vector<std::vector<Color> > &buffer)
 		for (int n = 0; n < (int)PTable[y].size(); n++) {
 			APT.push_back(PTable[y][n]);
 		}
-		if(!AET.empty()) std::sort(AET.begin(), AET.end(), comp);
+		if (!AET.empty()) std::sort(AET.begin(), AET.end(), comp);
 		ComputeBuffer(y, buffer[y], obj);
 
 		UpdateActivePoly();
