@@ -53,13 +53,7 @@ void display() {
 		}
 	}
 	glEnd();
-
 	glFinish();
-}
-void reshape(int w,int h) {
-    width = w;
-	height = h;
-	glViewport(0, 0, w, h);
 }
 
 int main(int argc,char** argv) {
@@ -76,7 +70,6 @@ int main(int argc,char** argv) {
 	glutCreateWindow("scan-line");
 
 	glutDisplayFunc(display);
-	glutReshapeFunc(reshape);
 	glutMainLoop();
 	return 1;
 }

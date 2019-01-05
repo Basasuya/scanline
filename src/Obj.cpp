@@ -4,13 +4,14 @@ Obj::Obj() {
 	vertex.clear();
 	normal.clear();
 	face.clear();
-	int n_vertex = 0;
-	int n_face = 0;
-	Point<float> center=Point<float>(0,0,0);
-	float minx = INF;
-	float miny = INF;
-	float maxx = 0;
-	float maxy = 0;
+	color.clear();
+	n_vertex = 0;
+	n_face = 0;
+	center=Point<float>(0,0,0);
+	minx = INF;
+	miny = INF;
+	maxx = 0;
+	maxy = 0;
 }
 
 int Obj::getFaceNum() {
@@ -23,7 +24,7 @@ void Obj::load(std::string file_path) {
 		printf("the path is unavailable\n");
 		exit(0);
 	}
-	char* str = "";
+	char* str;
 	char* sub;
 	std::vector<int> temp_f; 
 	Point<float> temp_c;
@@ -31,7 +32,7 @@ void Obj::load(std::string file_path) {
 	while (file.getline(str, 200)) {
 		if (str[0] == 'v'&&str[1] == ' ') {
 			
-			sscanf(str + 2 * sizeof(char), "%f %f %f", &temp_c.x, &temp_c.y, &temp_c.z);
+			sscanf(str + 1 * sizeof(char), "%f %f %f", &temp_c.x, &temp_c.y, &temp_c.z);
 			vertex.push_back(temp_c);
 			n_vertex++;
 			minx = std::min(minx, temp_c.x);
@@ -44,27 +45,38 @@ void Obj::load(std::string file_path) {
 			sub = strtok(NULL, " ");
 			while (sub) {
 				std::string s(sub);
-				int pos = s.find_first_of("/");
+				int pos = -1;
+				for(int j = 0; j < s.length(); ++j) {
+					if(s[j] == '/') {
+						pos = j;
+						break;
+					}
+				}
 				if (pos>0) temp_f.push_back(atoi(s.substr(0, pos).data()) - 1);
 				else temp_f.push_back(atoi(sub) - 1);
 				sub = strtok(NULL, " ");
 			}
+			// for(int i = 0; i < temp_f.size(); ++i) printf("%d ", temp_f[i]);
 			face.push_back(temp_f);
 			n_face++;
 		}
 	}
 	normal.resize(face.size());
 	for (int i = 0; i < n_face; i++) {
-		normal.push_back((vertex[face[i][1]] - vertex[face[i][0]])*(vertex[face[i][2]] - vertex[face[i][0]]));
-		normal[i] = normal[i] / std::sqrt(normal[i].x*normal[i].x + normal[i].y*normal[i].y + normal[i].z*normal[i].z);
+		normal[i] = ((vertex[face[i][1]] - vertex[face[i][0]]) * (vertex[face[i][2]] - vertex[face[i][0]]));
+		normal[i] = normal[i] / std::sqrt(normal[i].x*normal[i].x + normal[i].y*normal[i].y + normal[i].z * normal[i].z);
 	}
 
 	color.resize(face.size());
 	for (int i = 0; i < n_face; i++) {
 		float theta = normal[i].z / sqrt(normal[i].x * normal[i].x + normal[i].y * normal[i].y + normal[i].z * normal[i].z);
+		// printf("%.3f %.3f %.3f %.3f: ", theta, normal[i].x, normal[i].y, normal[i].z);
 		if(theta < 0) theta = -theta;
-		color.push_back(255*theta);
+		color[i] = 255*theta;
 	}
+
+	// for(int i = 0; i < n_face; ++i) printf("%d ", color[i]); printf("\n");
+	// exit(0);
 }
 
 void Obj::scale(int width, int height) {
@@ -81,7 +93,7 @@ void Obj::scale(int width, int height) {
 		else scale = height / scale;
 	}
 	
-	for (int i = 1; i <= n_vertex; i++) {
+	for (int i = 0; i < n_vertex; i++) {
 		vertex[i] = (vertex[i] - center) * scale;
 		vertex[i].x = vertex[i].x  + width / 2;
 		vertex[i].y = vertex[i].y  + height / 2;
