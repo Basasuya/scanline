@@ -35,6 +35,8 @@ bash buildAll.sh
 # 绝对路径
 ```
 
+<img src="./docs/Screen Shot 2019-01-05 at 12.52.29 PM.png" width=600px>
+
 #### 4. 未来工作
 
 本代码没有实现贯穿的处理，没有实现视角转动
